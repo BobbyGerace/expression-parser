@@ -36,3 +36,31 @@ const tree = parse('fact(5)');
 
 evaluate(tree, null, fns); // 120
 ```
+## Default Functions
+The following are available by default
+- floor
+- ceil
+- round
+- sin
+- cos
+- tan
+- asin
+- acos
+- atan
+- log (base e)
+- log10
+- exp (2^x)
+- pow (takes two arguments, a^b)
+- sinh
+- cosh
+- tanh
+- max 
+- min
+
+## Available operators
+ - \+
+ - \-
+ - \*
+ - /
+ - ^
+ - unary -
