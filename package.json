@@ -1,0 +1,22 @@
+{
+  "name": "expression-parser",
+  "version": "1.0.0",
+  "description": "Parses Mathematical Expressions",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "jest --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BobbyGerace/expression-parser.git"
+  },
+  "author": "Bobby Gerace",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/BobbyGerace/expression-parser/issues"
+  },
+  "homepage": "https://github.com/BobbyGerace/expression-parser#readme",
+  "devDependencies": {
+    "jest": "^24.8.0"
+  }
+}
