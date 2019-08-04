@@ -107,39 +107,37 @@ const sentinel = new Sentinel('s');
     in which v is either a variable name and a constant,
     and f is a function name
 */
+class Parser {
+    constructor(inp) {
+        this.rest = inp;
+        this.next = '';
+        this.consume();
+        this.operands = [];
+        this.operators = [];
+    }
 
-function parse(inp) {
-    let rest = inp;
-    let next = '';
-    consume();
-
-    return parseExpression();
-
-    function parseExpression() {
-        const operands = [];
-        const operators = [];
-
-        operators.push(sentinel);
+    parse() {
+        this.operators.push(sentinel);
 
         //Parse an expression and expect no more input
-        E(operators, operands);
-        expect('');
-        return operands.pop();
+        this.E();
+        this.expect('');
+        return this.operands.pop();
     }
 
     // E --> P {B P}
     // First parse one P, then 0 or more binary operators followed
     // by another P
-    function E(operators, operands) {
-        P(operators, operands);
+    E() {
+        this.P();
 
-        while (binaryOperators[next]) {
-            pushOperator(binary(next), operators, operands);
-            consume();
-            P(operators, operands);
+        while (binaryOperators[this.next]) {
+            this.pushOperator(binary(this.next));
+            this.consume();
+            this.P();
         }
-        while (!(top(operators) instanceof Sentinel)) {
-            popOperator(operators, operands);
+        while (!(top(this.operators) instanceof Sentinel)) {
+            this.popOperator();
         }
     }
 
@@ -151,54 +149,54 @@ function parse(inp) {
         - a unary operator followed by another P
         - a function call
     */
-    function P(operators, operands) {
-        if (isNumber(next)) {
-            operands.push(new Num(next));
-            consume();
+    P() {
+        if (isNumber(this.next)) {
+            this.operands.push(new Num(this.next));
+            this.consume();
         }
-        else if (next === '(') {
-            consume();
-            operators.push(sentinel);
-            E(operators, operands);
-            expect(')');
-            operators.pop();
+        else if (this.next === '(') {
+            this.consume();
+            this.operators.push(sentinel);
+            this.E();
+            this.expect(')');
+            this.operators.pop();
         }
-        else if (unaryOperators[next]) {
-            pushOperator(unary(next), operators, operands);
-            consume();
-            P(operators, operands);
+        else if (unaryOperators[this.next]) {
+            this.pushOperator(unary(this.next));
+            this.consume();
+            this.P();
         }
-        else if (isVariable(next)) {
-            const name = next;
-            consume();
+        else if (isVariable(this.next)) {
+            const name = this.next;
+            this.consume();
 
-            if (next === '(') {
+            if (this.next === '(') {
                 const fn = new Func(name, 0)
-                pushOperator(fn, operators, operands);
-                consume();
-                operators.push(sentinel);
-                F(fn, operators, operands);
-                expect(')');
-                operators.pop();
+                this.pushOperator(fn);
+                this.consume();
+                this.operators.push(sentinel);
+                this.F(fn);
+                this.expect(')');
+                this.operators.pop();
             }
             else {
-                operands.push(new Var(name));
+                this.operands.push(new Var(name));
             }
         }
-        else error('Invalid syntax at "' + next + '"');
+        else error('Invalid syntax at "' + this.next + '"');
     }
 
     // F --> f "(" E {"," E} ")"
     // We already got the fn name and the left paren in the previous step
     // Here we just parse an E, and then 0 or more pairs of Es and commas
-    function F(fn, operators, operands) {
-        E(operators, operands);
+    F(fn) {
+        this.E();
         fn.length++;
 
-        while (next === ',') {
+        while (this.next === ',') {
             fn.length++;
-            consume();
-            E(operators, operands);
+            this.consume();
+            this.E();
         }
     }
 
@@ -206,120 +204,120 @@ function parse(inp) {
     // then pops it's arguments off the operand stack
     // then appends the operands to the node, and
     // pops the operator onto the operand stack
-    function popOperator(operators, operands) {
-        if (top(operators) instanceof BinOp) {
-            const t1 = operands.pop();
-            const t0 = operands.pop();
-            const operator = operators.pop()
+    popOperator() {
+        if (top(this.operators) instanceof BinOp) {
+            const t1 = this.operands.pop();
+            const t0 = this.operands.pop();
+            const operator = this.operators.pop()
             operator.setOperands(t0, t1);
-            operands.push(operator);
+            this.operands.push(operator);
         }
-        else if (top(operators) instanceof UnOp) {
-            const operator = operators.pop();
-            operator.setOperands(operands.pop());
-            operands.push(operator);
+        else if (top(this.operators) instanceof UnOp) {
+            const operator = this.operators.pop();
+            operator.setOperands(this.operands.pop());
+            this.operands.push(operator);
         }
-        else if (top(operators) instanceof Func) {
-            const operator = operators.pop();
+        else if (top(this.operators) instanceof Func) {
+            const operator = this.operators.pop();
             while (operator.args.length < operator.length) {
-                operator.pushArg(operands.pop());
+                operator.pushArg(this.operands.pop());
             }
-            operands.push(operator);
+            this.operands.push(operator);
         }
     }
 
     // Pops any operators off the stack that have a higher precedence
     // then pushes onto the stack
-    function pushOperator(op, operators, operands) {
-        while (operators.length && op.getPrecedence() < top(operators).getPrecedence()) {
-            popOperator(operators, operands);
+    pushOperator(op) {
+        while (this.operators.length && op.getPrecedence() < top(this.operators).getPrecedence()) {
+            this.popOperator();
         }
-        operators.push(op);
+        this.operators.push(op);
     }
 
-    //Determines whether a character is an element in a set of characters
-    function elem(ch, set) {
-        return ch.length > 0 && set.indexOf(ch[0]) > -1
+
+    consume() {
+        const [n, r] = _consume(this.rest);
+        this.next = n;
+        this.rest = r;
     }
 
-    function readVar(str) {
-        let result = '';
-        for (let i = 0; i < str.length; i++) {
-            const ch = str[i];
-            if (elem(ch, variableChars)) result += ch;
-            else break;
-        }
+    expect(tok) {
+        if (this.next === tok) this.consume();
+        else if (this.next === '') error('Unexpected end of input');
+        else error('Unexpected "' + this.next + '"');
+    }
+}
 
-        return [result.toLowerCase(), str.substr(result.length)];
+//Determines whether a character is an element in a set of characters
+function elem(ch, set) {
+    return ch.length > 0 && set.indexOf(ch[0]) > -1
+}
+
+function readVar(str) {
+    let result = '';
+    for (let i = 0; i < str.length; i++) {
+        const ch = str[i];
+        if (elem(ch, variableChars)) result += ch;
+        else break;
     }
 
-    function readNumber(str) {
-        let result = '';
+    return [result.toLowerCase(), str.substr(result.length)];
+}
 
-        let periodCount = 0;
+function readNumber(str) {
+    let result = '';
 
-        for (let i = 0; i < str.length; i++) {
-            const ch = str[i];
-            if (ch === '.') periodCount++;
+    let periodCount = 0;
 
-            if (elem(ch, d)) result += ch;
-            else break;
+    for (let i = 0; i < str.length; i++) {
+        const ch = str[i];
+        if (ch === '.') periodCount++;
 
-        }
+        if (elem(ch, d)) result += ch;
+        else break;
 
-        if (periodCount > 1) error('Invalid Number: ' + result);
-
-        return [result, str.substr(result.length)];
     }
 
-    function consume() {
-        const [n, r] = _consume(rest);
-        next = n;
-        rest = r;
-    }
+    if (periodCount > 1) error('Invalid Number: ' + result);
 
-    function _consume(str) {
-        if (str.length === 0) return ['', ''];
+    return [result, str.substr(result.length)];
+}
 
-        let i;
-        for (i = 0; /\s/.test(str[i]) && i < str.length; i++);
+function isNumber(str) {
+    return elem(str, d);
+}
 
-        str = str.substr(i);
+function isVariable(str) {
+    return elem(str, variableChars);
+}
 
-        if (str.length === 0) return ['', ''];
+function top(stack) {
+    return stack[stack.length - 1];
+}
 
-        const ch = str[0];
+function _consume(str) {
+    if (str.length === 0) return ['', ''];
 
-        if (
-            binaryOperators[ch]
-            || unaryOperators[ch]
-            || ch === '('
-            || ch === ')'
-            || ch === ','
-        ) return [ch, str.substr(1)];
-        else if (elem(ch, d)) return readNumber(str);
-        else if (elem(ch, variableChars)) return readVar(str, variableChars);
-        else error('Invalid syntax at "' + ch + '"');
-    }
+    let i;
+    for (i = 0; /\s/.test(str[i]) && i < str.length; i++);
 
-    function expect(tok) {
-        if (next === tok) consume();
-        else if (next === '') error('Unexpected end of input');
-        else error('Unexpected "' + next + '"');
-    }
+    str = str.substr(i);
 
-    function isNumber(str) {
-        return elem(str, d);
-    }
+    if (str.length === 0) return ['', ''];
 
-    function isVariable(str) {
-        return elem(str, variableChars);
-    }
+    const ch = str[0];
 
-    function top(stack) {
-        return stack[stack.length - 1];
-    }
-
+    if (
+        binaryOperators[ch]
+        || unaryOperators[ch]
+        || ch === '('
+        || ch === ')'
+        || ch === ','
+    ) return [ch, str.substr(1)];
+    else if (elem(ch, d)) return readNumber(str);
+    else if (elem(ch, variableChars)) return readVar(str, variableChars);
+    else error('Invalid syntax at "' + ch + '"');
 }
 
 //Recursively evaluates the AST
@@ -493,6 +491,10 @@ const functionList = {
         fn: (...args) => Math.min(...args),
     },
 };
+
+function parse (str) {
+    return new Parser(str).parse();
+}
 
 module.exports = {
     parse: parse,
